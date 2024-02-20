@@ -31,7 +31,7 @@ import java.util.Map;
 
 public class MainActivity extends AppCompatActivity {
 
-    private final String url = "https://apiportalv01.azurewebsites.net/api/Get_Schedulesv1?DeviceConnectionID=WIP04";
+    private final String url = "https://apiportalv01.azurewebsites.net/api/Get_Schedulesv1?DeviceConnectionID=WIP02";
     private final String token = "1phdCM9b-r7mDtm4VyKXOhgf53A_2gMPTGM9DllION7IOl4Zlf-zICNfq_hMBB3XAKJhSlZjlTk0ZS_ldVAa2IAMCnb-FNTdCihDV_AtnlGYhT2O2qmZEfsF-pZnTSOCUpBmXoVqrT_mEXDzBOtAUjrcWNWYO9s77LHC3In-V9-IElcYqCMsQ_8oBzZetJl7dlJvsUC3O6m3hYLA5ay3VfdFvTc8kc_7Y_v8bo5oQ3yvoEnonkiXotIXaRMxE3fnPt5Os_rv8HqslmMvOjFJn1m8fZJEWB7QD4VgCj4Guk0uOlYMP8SypU2vru6tyxPza1dY6Urm65T0d7VtXkORWgGexny5sT2OtB4t1ZttIXDLozmKTBQFAMshazs6YlCJ66lI-iiDqbGFVdEKf3IVTMv4GgSEvfAetmoN2irS0OANNfqyc6I4aNjyDIgdjUjy04VfylzPe1PxbuMN4bBmrDlHjw61ksJvyaZ3zKwRrsCNd4nFoS9ayNIy0ltSSTyC";
     private static final String TAG = "MainActivity";
     private ActivityMainBinding binding;
@@ -157,7 +157,7 @@ public class MainActivity extends AppCompatActivity {
                     case 0: // One-time
                         if (nextTriggerTime.getTimeInMillis() <= currentTimeMillis) {
                             // This means the one-time event is in the past and should not be scheduled.
-                            return 0;
+                            return -1;
                         }
                         break;
                     case 1: // Daily
@@ -194,7 +194,6 @@ public class MainActivity extends AppCompatActivity {
         }
         return 0;
     }
-
 
     private Map<String, String> getHeaders() {
         Map<String, String> headers = new HashMap<>();
