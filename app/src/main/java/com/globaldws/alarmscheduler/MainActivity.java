@@ -31,8 +31,8 @@ import java.util.Map;
 
 public class MainActivity extends AppCompatActivity {
 
-    private final String url = "https://apiportalv01.azurewebsites.net/api/Get_Schedulesv1?DeviceConnectionID=WIP02";
-    private final String token = "1phdCM9b-r7mDtm4VyKXOhgf53A_2gMPTGM9DllION7IOl4Zlf-zICNfq_hMBB3XAKJhSlZjlTk0ZS_ldVAa2IAMCnb-FNTdCihDV_AtnlGYhT2O2qmZEfsF-pZnTSOCUpBmXoVqrT_mEXDzBOtAUjrcWNWYO9s77LHC3In-V9-IElcYqCMsQ_8oBzZetJl7dlJvsUC3O6m3hYLA5ay3VfdFvTc8kc_7Y_v8bo5oQ3yvoEnonkiXotIXaRMxE3fnPt5Os_rv8HqslmMvOjFJn1m8fZJEWB7QD4VgCj4Guk0uOlYMP8SypU2vru6tyxPza1dY6Urm65T0d7VtXkORWgGexny5sT2OtB4t1ZttIXDLozmKTBQFAMshazs6YlCJ66lI-iiDqbGFVdEKf3IVTMv4GgSEvfAetmoN2irS0OANNfqyc6I4aNjyDIgdjUjy04VfylzPe1PxbuMN4bBmrDlHjw61ksJvyaZ3zKwRrsCNd4nFoS9ayNIy0ltSSTyC";
+    private final String url = "https://apiportalv01.azurewebsites.net/api/Get_Schedulesv1?DeviceConnectionID=WIP01";
+    private final String token = "KH5ePSRIMnhxrJk9FLPYBvDRsCbNaoQZUjVxyWQPcW3gTn8zsrplRq-7vJs9HjGnkdHKu8k5RKa7lxWFd1T0Bl14a5o7Zzi3A5G9g51b_3TXh94D5xj0tXHKDCreytBfqNrC2S_rYJwSU8f2czPx0dRsbRy2XvSwg3DLUK6h3GLlxokt-7agttOUG5sjvBexz_nbM1GPDlUMz6e6oPcqw5xrzv8Zi3_M2YDUQY6YrZl3HbUVBo3R-9TX4LmFqROnN3YpEV4zp0zJGm2uFVrbqIxwYrISQBKvHnIwcIHwdJIzy_5y2KPT8pJ347ACAqzegRDfGxsy8L7unoFwKHDN7inPjldIRaKW31H_o-Db70_3v8e2h6iP11KKG3osM7QwDBmkaq1Qva7BmrB4PtNKQ47OQmyfvqgcgAs-QOG70g9lvQ8CR5y3d1v53VEQm_Re_oxkKMyjfgYbx_mipHJNjrO8fmlHXGDQ7jYP23vMz8ON6PpfHNPsacIxfy-hkX9k";
     private static final String TAG = "MainActivity";
     private ActivityMainBinding binding;
     private ArrayList<ScheduleModel> scheduleModels = new ArrayList<>();
@@ -66,7 +66,7 @@ public class MainActivity extends AppCompatActivity {
                     }.getType();
                     List<ScheduleModel> scheduleList = gson.fromJson(response, scheduleListType);
                     if (scheduleList != null) {
-                        setAlarms(scheduleList);
+                        setAlarms(getApplicationContext(), scheduleList);
                         scheduleModels.clear();
                         scheduleModels.addAll(scheduleList);
                         alarmAdapter.notifyDataSetChanged();
@@ -86,39 +86,44 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    private void setAlarms(List<ScheduleModel> scheduleList) {
-        AlarmManager alarmManager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+    public void setAlarms(Context context, List<ScheduleModel> scheduleList) {
+        AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
 
         for (ScheduleModel scheduleModel : scheduleList) {
+            Log.e(TAG, "setAlarms: Schedule ID: " + scheduleModel.getScheduleId());
+
             long triggerTimeMillis = calculateTriggerTime(scheduleModel);
-            // If the trigger time is in the past, it has been adjusted to the next appropriate time by calculateTriggerTime method.
-            long finishDateMillis = calculateFinishTimeMillis(scheduleModel); // Implement this to parse finish date
-            Intent alarmIntent = new Intent(this, AlarmReceiver.class);
-
-            if (triggerTimeMillis < finishDateMillis) {
-                alarmIntent.putExtra("scheduleName", scheduleModel.getScheduleName());
-                // Additional info to handle in AlarmReceiver
-                alarmIntent.putExtra("scheduleId", scheduleModel.getScheduleId());
-                alarmIntent.putExtra("repeatType", (int) scheduleModel.getRepeatType() - 1);
-                alarmIntent.putExtra("finishDateMillis", finishDateMillis); // Pass finish date for handling in receiver
-
-                PendingIntent pendingIntent = PendingIntent.getBroadcast(this, scheduleModel.getScheduleId(), alarmIntent, PendingIntent.FLAG_UPDATE_CURRENT);
-
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                    alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerTimeMillis, pendingIntent);
-                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
-                    alarmManager.setExact(AlarmManager.RTC_WAKEUP, triggerTimeMillis, pendingIntent);
-                } else {
-                    alarmManager.set(AlarmManager.RTC_WAKEUP, triggerTimeMillis, pendingIntent);
-                }
-
-                Log.d(TAG, "Alarm (re)scheduled for: " + scheduleModel.getScheduleName() + " at " + new Date(triggerTimeMillis).toString());
-                // Note: For repeating alarms, AlarmReceiver is responsible for calculating and setting the next occurrence.
-            } else {
-                PendingIntent cancelIntent = PendingIntent.getBroadcast(this, scheduleModel.getScheduleId(), alarmIntent, PendingIntent.FLAG_UPDATE_CURRENT);
-                alarmManager.cancel(cancelIntent);
-                Log.d(TAG, "Cancelled alarm for schedule " + scheduleModel.getScheduleName() + " as its finish date has passed.");
+            // Validate trigger time
+            if (triggerTimeMillis <= 0) {
+                Log.d(TAG, "Invalid trigger time for Schedule ID: " + scheduleModel.getScheduleId());
+                continue; // Skip this iteration
             }
+
+            long finishDateMillis = calculateFinishTimeMillis(scheduleModel);
+            // Validate finish date
+            if (finishDateMillis == -1) {
+                Log.e(TAG, "Invalid finish date for Schedule ID: " + scheduleModel.getScheduleId());
+                continue; // Skip this iteration
+            }
+
+            Intent alarmIntent = new Intent(context, AlarmReceiver.class);
+            alarmIntent.putExtra("scheduleName", scheduleModel.getScheduleName());
+            alarmIntent.putExtra("scheduleId", scheduleModel.getScheduleId());
+            alarmIntent.putExtra("repeatType", scheduleModel.getRepeatType() - 1);
+            alarmIntent.putExtra("finishDateMillis", finishDateMillis);
+
+            PendingIntent pendingIntent = PendingIntent.getBroadcast(context, scheduleModel.getScheduleId(), alarmIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+
+            // Schedule the alarm based on Android version
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerTimeMillis, pendingIntent);
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+                alarmManager.setExact(AlarmManager.RTC_WAKEUP, triggerTimeMillis, pendingIntent);
+            } else {
+                alarmManager.set(AlarmManager.RTC_WAKEUP, triggerTimeMillis, pendingIntent);
+            }
+
+            Log.d(TAG, "Alarm for Schedule ID: " + scheduleModel.getScheduleId() + " set for: " + new Date(triggerTimeMillis).toString());
         }
     }
 
@@ -151,13 +156,14 @@ public class MainActivity extends AppCompatActivity {
             if (scheduledDate != null) {
                 Calendar nextTriggerTime = Calendar.getInstance();
                 nextTriggerTime.setTime(scheduledDate);
+                long scheduledTimeMillis = nextTriggerTime.getTimeInMillis();
                 Log.e(TAG, "calculateTriggerTime: Repeat ID:" + (schedule.getRepeatType() - 1));
                 // Adjust the trigger time based on the repeat type
                 switch (Math.toIntExact(schedule.getRepeatType() - 1)) {
                     case 0: // One-time
                         if (nextTriggerTime.getTimeInMillis() <= currentTimeMillis) {
                             // This means the one-time event is in the past and should not be scheduled.
-                            return -1;
+                            return scheduledTimeMillis; // Not to schedule past alarms.
                         }
                         break;
                     case 1: // Daily
